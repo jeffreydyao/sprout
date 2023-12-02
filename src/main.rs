@@ -37,10 +37,13 @@ fn recordings(dir: &PathBuf) -> impl Iterator<Item = walkdir::DirEntry> {
 
 
 fn main() {
+    let target_path = "/Volumes/IC RECORDER";
+
+    println!("[🌱::sprout] scanning for changes on {}", &target_path);
     let mut prev_recordings = HashSet::<PathBuf>::new();
 
     loop {
-        match target_volume("/Volumes/IC RECORDER") {
+        match target_volume(&target_path) {
             Some(path) => {                
                 let current_recordings: HashSet<PathBuf> = recordings(&path).map(|e| e.path().to_path_buf()).collect(); 
                 let new_recordings = current_recordings.difference(&prev_recordings);
