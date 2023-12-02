@@ -1,62 +1,58 @@
+
+use std::{path::{Path, PathBuf}, collections::HashSet};
+
+/// Returns a PathBuf to the target volume, if it exists.
+/// 
+/// # Arguments
+/// 
+/// * `path` - A string slice of the path to the target volume.
+fn target_volume(path: &str) -> Option<PathBuf> {
+    let path = Path::new(path);
+    if path.exists() {
+        Some(path.to_path_buf())
+    } else {
+        None
+    }
+}
+
+/// Returns an iterator over the recordings in the given directory.
+/// Skips any hidden files/folders.
+/// 
+/// # Arguments
+/// 
+/// * `dir` - A PathBuf reference to the directory to search for recordings in.
+/// 
+fn recordings(dir: &PathBuf) -> impl Iterator<Item = walkdir::DirEntry> {
+    walkdir::WalkDir::new(dir)
+        .into_iter()
+        .filter_entry( |e|
+            e.file_name()
+                .to_str()
+                .map(|s| !s.starts_with(".")) // Exclude hidden files/folders
+                .unwrap_or(false),
+        )
+        .filter_map(Result::ok)
+        .filter(|e| e.path().extension().map_or(false, |ext| ext == "mp3"))
+}
+
+
 fn main() {
-    println!("Hello, world! Here are the drives you wanted.");
-
-
-
-  /*   let paths = std::fs::read_dir("/Volumes/IC RECORDER").unwrap();
-    for path in paths {
-        let path = path.unwrap().path();
-        if path.is_dir() && !path.to_string_lossy().starts_with(".") {
-            println!("{}", path.display());
-            let files = std::fs::read_dir(path).unwrap();
-            for file in files {
-                let file = file.unwrap().path();
-                if file.is_dir() && !file.to_string_lossy().starts_with(".") {
-                    println!("  - {}", file.display());
-                    let sub_files = std::fs::read_dir(file).unwrap();
-                    for sub_file in sub_files {
-                        let sub_file = sub_file.unwrap().path();
-                        if !sub_file.to_string_lossy().starts_with(".") {
-                            println!("     - {}", sub_file.display());
-                        }
-                    }
-                }
-            }
-        }
-    } */
-
-    use std::fs;
-    use std::time::Duration;
-    use std::thread;
-    use std::collections::HashSet;
-
-    let mut drives_before = HashSet::new();
+    let mut prev_recordings = HashSet::<PathBuf>::new();
 
     loop {
-        let mut drives_after = HashSet::new();
-        for entry in fs::read_dir("/Volumes").unwrap() {
-            let entry = entry.unwrap();
-            let path = entry.path();
-            if path.is_dir() {
-                drives_after.insert(path);
-            }
-        }
-
-        if drives_before != drives_after {
-            for drive in &drives_after {
-                if !drives_before.contains(drive) {
-                    println!("Drive mounted: {}", drive.display());
+        match target_volume("/Volumes/IC RECORDER") {
+            Some(path) => {                
+                let current_recordings: HashSet<PathBuf> = recordings(&path).map(|e| e.path().to_path_buf()).collect(); 
+                let new_recordings = current_recordings.difference(&prev_recordings);
+                
+                for entry in new_recordings {
+                    println!("{}", entry.display());
                 }
+
+                prev_recordings = current_recordings;
             }
-            for drive in &drives_before {
-                if !drives_after.contains(drive) {
-                    println!("Drive unmounted: {}", drive.display());
-                }
-            }
+            None => {}
         }
-
-        drives_before = drives_after;
-
-        thread::sleep(Duration::from_secs(1));
+        std::thread::sleep(std::time::Duration::from_secs(2));
     }
 }
